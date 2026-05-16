@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type AuthFormProps = {
+  id?: string;
   title: string;
   description: string;
   submitLabel: string;
@@ -36,6 +37,7 @@ type AuthFormProps = {
 const initialState: AuthActionState = {};
 
 export function AuthForm({
+  id = "auth-form",
   title,
   description,
   submitLabel,
@@ -52,7 +54,7 @@ export function AuthForm({
         <CardTitle className="text-xl">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <form action={formAction}>
+      <form id={id} action={formAction}>
         <CardContent className="space-y-4">
           {state.error && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">

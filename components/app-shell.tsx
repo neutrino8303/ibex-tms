@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getNavigationForUser } from "@/lib/navigation";
 import { AppHeader } from "@/components/app-header";
@@ -10,7 +11,7 @@ type AppShellProps = {
 export async function AppShell({ children }: AppShellProps) {
   const user = await getCurrentUser();
   if (!user) {
-    return null;
+    redirect("/login");
   }
 
   const sections = getNavigationForUser(user);

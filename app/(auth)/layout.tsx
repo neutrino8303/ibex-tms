@@ -1,4 +1,5 @@
 import { Plane } from "lucide-react";
+import { APP_NAME } from "@/lib/app-config";
 
 export default function AuthLayout({
   children,
@@ -11,7 +12,7 @@ export default function AuthLayout({
         <div className="flex items-center gap-2">
           <Plane className="size-6" />
           <span className="text-lg font-semibold tracking-tight">
-            Aviation TMS
+            {APP_NAME}
           </span>
         </div>
         <div>
@@ -27,7 +28,7 @@ export default function AuthLayout({
           MVP · Single organization · Lisbon & Porto bases
         </p>
       </div>
-      <div className="flex flex-1 items-center justify-center bg-background p-6">
+      <div className="flex flex-1 items-center justify-center overflow-y-auto bg-background p-6">
         {children}
       </div>
     </div>

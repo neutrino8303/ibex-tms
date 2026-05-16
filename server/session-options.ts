@@ -7,7 +7,7 @@ export interface SessionData {
 
 export const sessionOptions: SessionOptions = {
   password: process.env.SESSION_SECRET ?? "dev-only-secret-min-32-characters-long",
-  cookieName: "aviation-tms-session",
+  cookieName: "ibex-tms-session",
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",
     httpOnly: true,

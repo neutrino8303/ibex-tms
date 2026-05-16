@@ -97,6 +97,9 @@ export async function signupAction(
 
 export async function logoutAction(): Promise<void> {
   const session = await getSession();
+  session.userId = "";
+  session.isLoggedIn = false;
+  await session.save();
   session.destroy();
   redirect("/login");
 }

@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plane } from "lucide-react";
 import { useState } from "react";
+import { APP_NAME, APP_TAGLINE } from "@/lib/app-config";
 import type { NavSection } from "@/lib/navigation";
+import { NavIcon } from "@/components/nav-icon";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -28,10 +30,10 @@ export function AppSidebar({ sections }: AppSidebarProps) {
         {!collapsed && (
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold tracking-tight">
-              Aviation TMS
+              {APP_NAME}
             </p>
             <p className="truncate text-xs text-muted-foreground">
-              Training Management
+              {APP_TAGLINE}
             </p>
           </div>
         )}
@@ -51,7 +53,6 @@ export function AppSidebar({ sections }: AppSidebarProps) {
                   item.href === "/"
                     ? pathname === "/"
                     : pathname.startsWith(item.href);
-                const Icon = item.icon;
                 return (
                   <li key={item.href}>
                     <Link
@@ -64,7 +65,7 @@ export function AppSidebar({ sections }: AppSidebarProps) {
                           : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                       )}
                     >
-                      <Icon className="size-4 shrink-0" />
+                      <NavIcon name={item.icon} className="size-4 shrink-0" />
                       {!collapsed && <span>{item.title}</span>}
                     </Link>
                   </li>

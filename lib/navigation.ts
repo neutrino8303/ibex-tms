@@ -1,19 +1,18 @@
 import { UserRole } from "@prisma/client";
-import {
-  ClipboardList,
-  FileText,
-  GraduationCap,
-  LayoutDashboard,
-  Shield,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
 import { hasAnyRole, type CurrentUser } from "@/lib/auth";
+
+export type NavIconName =
+  | "layout-dashboard"
+  | "graduation-cap"
+  | "clipboard-list"
+  | "users"
+  | "shield"
+  | "file-text";
 
 export type NavItem = {
   title: string;
   href: string;
-  icon: LucideIcon;
+  icon: NavIconName;
   roles?: UserRole[];
 };
 
@@ -23,33 +22,33 @@ export type NavSection = {
 };
 
 const mainNav: NavItem[] = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  { title: "Dashboard", href: "/", icon: "layout-dashboard" },
   {
     title: "Expiring qualifications",
     href: "/dashboard/expiring",
-    icon: GraduationCap,
+    icon: "graduation-cap",
     roles: [UserRole.ADMIN, UserRole.TRAINING_MANAGER, UserRole.AUDITOR],
   },
-  { title: "Evaluations", href: "/evaluations", icon: ClipboardList },
+  { title: "Evaluations", href: "/evaluations", icon: "clipboard-list" },
 ];
 
 const adminNav: NavItem[] = [
   {
     title: "Users",
     href: "/admin/users",
-    icon: Users,
+    icon: "users",
     roles: [UserRole.ADMIN, UserRole.TRAINING_MANAGER],
   },
   {
     title: "Qualifications",
     href: "/admin/qualifications",
-    icon: Shield,
+    icon: "shield",
     roles: [UserRole.ADMIN, UserRole.TRAINING_MANAGER],
   },
   {
     title: "Evaluation forms",
     href: "/admin/forms",
-    icon: FileText,
+    icon: "file-text",
     roles: [UserRole.ADMIN, UserRole.TRAINING_MANAGER],
   },
 ];

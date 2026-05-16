@@ -1,4 +1,5 @@
 import {
+  EvaluationStatus,
   GradingScale,
   PrismaClient,
   QualCategory,
@@ -383,11 +384,30 @@ async function main() {
     },
   });
 
+  const opcTasks = await prisma.formTask.findMany({
+    where: { section: { formId: opcForm.id } },
+  });
+
+  const sampleEvaluation = await prisma.evaluation.create({
+    data: {
+      formId: opcForm.id,
+      traineeId: pilots[0].id,
+      evaluatorId: examiners[0].id,
+      scheduledDate: addDays(now, 3),
+      location: "SIM-1 LPPT",
+      status: EvaluationStatus.ASSIGNED,
+      taskResults: {
+        create: opcTasks.map((task) => ({ taskId: task.id })),
+      },
+    },
+  });
+
   console.log("Seed complete.");
   console.log(`Admin login: admin@tms.local / password123`);
   console.log(`Training manager: ${trainingManager.email}`);
   console.log(`Examiners: ${examiners.map((e) => e.email).join(", ")}`);
   console.log(`Sample form: ${opcForm.code} v${opcForm.version}`);
+  console.log(`Sample evaluation: /evaluations/${sampleEvaluation.id}`);
   console.log(`Pilots seeded: ${pilots.length}`);
 }
 
