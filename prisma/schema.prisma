@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  TRAINING_MANAGER
+  EXAMINER
+  INSTRUCTOR
+  PILOT
+  AUDITOR
+}
+
+enum QualCategory {
+  TYPE_RATING
+  RECURRENT
+  MEDICAL
+  LICENSE
+  ENDORSEMENT
+  CURRENCY
+}
+
+enum QualStatus {
+  VALID
+  EXPIRING_SOON
+  EXPIRED
+  SUSPENDED
+}
+
+enum GradingScale {
+  PASS_FAIL
+  ONE_TO_FIVE
+  EBT_COMPETENCY
+}
+
+enum EvaluationStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum EvaluationResult {
+  PASSED
+  FAILED
+  PARTIAL
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  employeeNumber  String?  @unique
+  licenseNumber   String?
+  base            String?
+  hireDate        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  roles           UserRoleAssignment[]
+  qualifications  UserQualification[]
+  evalsAsTrainee  Evaluation[] @relation("Trainee")
+  evalsAsEvaluator Evaluation[] @relation("Evaluator")
+  formsCreated    EvaluationForm[]
+  auditLogs       AuditLog[]
+}
+
+model UserRoleAssignment {
+  id      String   @id @default(cuid())
+  userId  String
+  role    UserRole
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+}
+
+model Qualification {
+  id                 String         @id @default(cuid())
+  code               String         @unique
+  name               String
+  category           QualCategory
+  validityPeriodDays Int
+  description        String?
+  createdAt          DateTime       @default(now())
+
+  userQualifications UserQualification[]
+  taskLinks          TaskQualificationLink[]
+}
+
+model UserQualification {
+  id                  String         @id @default(cuid())
+  userId              String
+  qualificationId     String
+  issuedDate          DateTime
+  expiryDate          DateTime
+  issuingAuthority    String?
+  status              QualStatus     @default(VALID)
+  linkedEvaluationId  String?
+
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  qualification       Qualification  @relation(fields: [qualificationId], references: [id])
+  linkedEvaluation    Evaluation?    @relation(fields: [linkedEvaluationId], references: [id])
+
+  @@index([userId])
+  @@index([expiryDate])
+}
+
+model EvaluationForm {
+  id                  String   @id @default(cuid())
+  code                String
+  name                String
+  version             Int      @default(1)
+  isPublished         Boolean  @default(false)
+  applicableRoles     String
+  defaultGradingScale GradingScale @default(PASS_FAIL)
+  createdById         String
+  createdAt           DateTime @default(now())
+  publishedAt         DateTime?
+
+  createdBy           User     @relation(fields: [createdById], references: [id])
+  sections            FormSection[]
+  evaluations         Evaluation[]
+
+  @@unique([code, version])
+}
+
+model FormSection {
+  id       String   @id @default(cuid())
+  formId   String
+  title    String
+  order    Int
+
+  form     EvaluationForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  tasks    FormTask[]
+}
+
+model FormTask {
+  id            String   @id @default(cuid())
+  sectionId     String
+  title         String
+  description   String?
+  gradingScale  GradingScale
+  isMandatory   Boolean  @default(true)
+  order         Int
+
+  section       FormSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  qualLinks     TaskQualificationLink[]
+  results       EvaluationTaskResult[]
+}
+
+model TaskQualificationLink {
+  taskId          String
+  qualificationId String
+
+  task            FormTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  qualification   Qualification @relation(fields: [qualificationId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, qualificationId])
+}
+
+model Evaluation {
+  id                  String   @id @default(cuid())
+  formId              String
+  traineeId           String
+  evaluatorId         String
+  scheduledDate       DateTime
+  location            String?
+  status              EvaluationStatus @default(ASSIGNED)
+  overallResult       EvaluationResult?
+  evaluatorSignature  String?
+  traineeSignature    String?
+  signedAt            DateTime?
+  notes               String?
+  createdAt           DateTime @default(now())
+
+  form                EvaluationForm @relation(fields: [formId], references: [id])
+  trainee             User           @relation("Trainee", fields: [traineeId], references: [id])
+  evaluator           User           @relation("Evaluator", fields: [evaluatorId], references: [id])
+  taskResults         EvaluationTaskResult[]
+  renewedQualifications UserQualification[]
+}
+
+model EvaluationTaskResult {
+  id             String   @id @default(cuid())
+  evaluationId   String
+  taskId         String
+  passed         Boolean?
+  numericGrade   Int?
+  ebtGrade       String?
+  comment        String?
+
+  evaluation     Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  task           FormTask   @relation(fields: [taskId], references: [id])
+
+  @@unique([evaluationId, taskId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String
+  action      String
+  entityType  String
+  entityId    String
+  beforeValue String?
+  afterValue  String?
+  timestamp   DateTime @default(now())
+
+  actor       User     @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([timestamp])
+}
