@@ -2,14 +2,6 @@
 
 import { useState } from "react";
 import { DEMO_PASSWORD, demoUsers } from "@/lib/demo-users";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type LoginDemoAccountsProps = {
@@ -38,35 +30,34 @@ export function LoginDemoAccounts({ formId }: LoginDemoAccountsProps) {
   }
 
   return (
-    <Card className="w-full max-w-md border-dashed">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Demo accounts</CardTitle>
-        <CardDescription>
-          Click an account to fill the form, then sign in. Password:{" "}
-          <span className="font-mono">{DEMO_PASSWORD}</span>
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-2">
+    <div className="w-full max-w-[22rem] border-t border-border pt-5">
+      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        Demo access
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Select a role to fill credentials. Password:{" "}
+        <span className="font-mono text-foreground">{DEMO_PASSWORD}</span>
+      </p>
+      <ul className="mt-3 divide-y divide-border rounded-md border border-border bg-card">
         {demoUsers.map((user) => (
-          <Button
-            key={user.email}
-            type="button"
-            variant={selectedEmail === user.email ? "secondary" : "outline"}
-            className={cn(
-              "h-auto w-full justify-start px-3 py-2 text-left",
-              selectedEmail === user.email && "ring-2 ring-ring",
-            )}
-            onClick={() => fillAccount(user.email)}
-          >
-            <span className="flex flex-col gap-0.5">
-              <span className="font-medium">{user.name}</span>
+          <li key={user.email}>
+            <button
+              type="button"
+              className={cn(
+                "flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/60",
+                selectedEmail === user.email &&
+                  "bg-accent/8 ring-1 ring-inset ring-accent/30",
+              )}
+              onClick={() => fillAccount(user.email)}
+            >
+              <span className="font-medium text-foreground">{user.name}</span>
               <span className="text-xs text-muted-foreground">
                 {user.role} · {user.email}
               </span>
-            </span>
-          </Button>
+            </button>
+          </li>
         ))}
-      </CardContent>
-    </Card>
+      </ul>
+    </div>
   );
 }

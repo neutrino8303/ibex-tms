@@ -30,12 +30,20 @@ export type QualificationRow = {
   category: QualCategory;
   validityPeriodDays: number;
   description: string | null;
+  conditionalQualificationIds: string[];
+};
+
+export type QualificationCatalogOption = {
+  id: string;
+  code: string;
+  name: string;
 };
 
 type QualificationFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   qualification?: QualificationRow | null;
+  catalog: QualificationCatalogOption[];
 };
 
 const selectClassName = cn(
@@ -46,6 +54,7 @@ export function QualificationFormDialog({
   open,
   onOpenChange,
   qualification,
+  catalog,
 }: QualificationFormDialogProps) {
   const isEdit = Boolean(qualification);
   const action = isEdit ? updateQualificationAction : createQualificationAction;
@@ -67,8 +76,8 @@ export function QualificationFormDialog({
             {isEdit ? "Edit qualification" : "New qualification"}
           </DialogTitle>
           <DialogDescription>
-            Define the qualification catalog entry and validity period used for
-            renewals.
+            Define the catalog entry, validity period, and optional conditional
+            qualifications that can shorten effective expiry for pilots.
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} className="space-y-4">
@@ -160,6 +169,50 @@ export function QualificationFormDialog({
               name="description"
               defaultValue={qualification?.description ?? ""}
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Conditional qualifications (optional)</Label>
+            <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-3">
+              {catalog.filter((item) => item.id !== qualification?.id).length ===
+              0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No other qualifications in the catalog yet.
+                </p>
+              ) : (
+                catalog
+                  .filter((item) => item.id !== qualification?.id)
+                  .map((item) => {
+                    const checked =
+                      qualification?.conditionalQualificationIds.includes(
+                        item.id,
+                      );
+                    return (
+                      <label
+                        key={item.id}
+                        className="flex cursor-pointer items-start gap-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          name="conditionalQualificationIds"
+                          value={item.id}
+                          defaultChecked={checked}
+                          className="mt-0.5 size-4 rounded border-input"
+                        />
+                        <span>
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {item.code}
+                          </span>
+                          <span className="ml-1.5">{item.name}</span>
+                        </span>
+                      </label>
+                    );
+                  })
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              If any selected qualification expires earlier for a pilot, this
+              qualification&apos;s effective expiry uses the earliest date.
+            </p>
           </div>
           <DialogFooter>
             <Button

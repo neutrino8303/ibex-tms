@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:clean": "rm -rf .next && next dev",
+    "dev": "prisma generate && next dev",
+    "dev:clean": "prisma generate && rm -rf .next && next dev",
     "postinstall": "prisma generate",
     "build": "prisma generate && next build",
     "start": "next start",
@@ -14,6 +14,8 @@
     "db:supabase": "bash scripts/migrate-to-supabase.sh",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:backfill-conditionals": "tsx scripts/backfill-qualification-conditionals.ts",
+    "fix:prisma": "rm -rf .next node_modules/.prisma && prisma generate",
     "db:reset": "prisma migrate reset --force"
   },
   "prisma": {

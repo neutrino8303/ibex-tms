@@ -6,6 +6,11 @@ import { z } from "zod";
 import type { ActionState } from "@/lib/action-state";
 import { writeAuditLog } from "@/server/audit";
 import { prisma } from "@/server/db";
+import {
+  recomputeUsersAffectedByCatalogQualification,
+  syncQualificationConditionals,
+  wouldCreateConditionalCycles,
+} from "@/server/qualification-expiry";
 import { requireAdminActorId } from "@/server/require-admin";
 
 const categoryEnum = z.nativeEnum(QualCategory);
@@ -24,6 +29,7 @@ const qualificationSchema = z.object({
     .min(1, "Validity must be at least 1 day")
     .max(3650, "Validity cannot exceed 10 years"),
   description: z.string().optional(),
+  conditionalQualificationIds: z.array(z.string().min(1)).default([]),
 });
 
 const createQualificationSchema = qualificationSchema;
@@ -37,11 +43,40 @@ function emptyToUndefined(value: FormDataEntryValue | null): string | undefined 
   return text ? text : undefined;
 }
 
+function parseConditionalQualificationIds(formData: FormData): string[] {
+  const ids = formData
+    .getAll("conditionalQualificationIds")
+    .map((value) => value.toString().trim())
+    .filter(Boolean);
+  return [...new Set(ids)];
+}
+
+async function validateConditionalQualificationIds(
+  ids: string[],
+): Promise<ActionState | null> {
+  if (ids.length === 0) {
+    return null;
+  }
+
+  const found = await prisma.qualification.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+
+  if (found.length !== ids.length) {
+    return { error: "One or more conditional qualifications were not found" };
+  }
+
+  return null;
+}
+
 export async function createQualificationAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   const actorId = await requireAdminActorId();
+
+  const conditionalQualificationIds = parseConditionalQualificationIds(formData);
 
   const parsed = createQualificationSchema.safeParse({
     code: formData.get("code")?.toString().toUpperCase(),
@@ -49,6 +84,7 @@ export async function createQualificationAction(
     category: formData.get("category"),
     validityPeriodDays: formData.get("validityPeriodDays"),
     description: emptyToUndefined(formData.get("description")),
+    conditionalQualificationIds,
   });
 
   if (!parsed.success) {
@@ -62,6 +98,13 @@ export async function createQualificationAction(
     return { error: "A qualification with this code already exists" };
   }
 
+  const conditionalError = await validateConditionalQualificationIds(
+    parsed.data.conditionalQualificationIds,
+  );
+  if (conditionalError) {
+    return conditionalError;
+  }
+
   const qualification = await prisma.qualification.create({
     data: {
       code: parsed.data.code,
@@ -71,6 +114,26 @@ export async function createQualificationAction(
       description: parsed.data.description ?? null,
     },
   });
+
+  if (parsed.data.conditionalQualificationIds.length > 0) {
+    if (
+      await wouldCreateConditionalCycles(
+        qualification.id,
+        parsed.data.conditionalQualificationIds,
+      )
+    ) {
+      await prisma.qualification.delete({ where: { id: qualification.id } });
+      return {
+        error:
+          "Conditional qualifications would create a circular dependency. Choose different items.",
+      };
+    }
+
+    await syncQualificationConditionals(
+      qualification.id,
+      parsed.data.conditionalQualificationIds,
+    );
+  }
 
   await writeAuditLog({
     actorId,
@@ -90,6 +153,8 @@ export async function updateQualificationAction(
 ): Promise<ActionState> {
   const actorId = await requireAdminActorId();
 
+  const conditionalQualificationIds = parseConditionalQualificationIds(formData);
+
   const parsed = updateQualificationSchema.safeParse({
     qualificationId: formData.get("qualificationId"),
     code: formData.get("code")?.toString().toUpperCase(),
@@ -97,6 +162,7 @@ export async function updateQualificationAction(
     category: formData.get("category"),
     validityPeriodDays: formData.get("validityPeriodDays"),
     description: emptyToUndefined(formData.get("description")),
+    conditionalQualificationIds,
   });
 
   if (!parsed.success) {
@@ -109,6 +175,25 @@ export async function updateQualificationAction(
 
   if (!existing) {
     return { error: "Qualification not found" };
+  }
+
+  if (
+    await wouldCreateConditionalCycles(
+      parsed.data.qualificationId,
+      parsed.data.conditionalQualificationIds,
+    )
+  ) {
+    return {
+      error:
+        "Conditional qualifications would create a circular dependency. Choose different items.",
+    };
+  }
+
+  const conditionalError = await validateConditionalQualificationIds(
+    parsed.data.conditionalQualificationIds,
+  );
+  if (conditionalError) {
+    return conditionalError;
   }
 
   const codeTaken = await prisma.qualification.findFirst({
@@ -131,6 +216,13 @@ export async function updateQualificationAction(
       description: parsed.data.description ?? null,
     },
   });
+
+  await syncQualificationConditionals(
+    qualification.id,
+    parsed.data.conditionalQualificationIds,
+  );
+
+  await recomputeUsersAffectedByCatalogQualification(qualification.id);
 
   await writeAuditLog({
     actorId,

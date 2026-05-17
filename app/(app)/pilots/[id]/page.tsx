@@ -20,8 +20,12 @@ import {
 } from "@/lib/qualifications";
 import { userRoleLabel } from "@/lib/roles";
 import { prisma } from "@/server/db";
+import { fetchConditionalIdsByQualificationId } from "@/server/qualification-conditionals";
 import { requirePilotProfileAccess } from "@/server/require-pilot-view";
-import { canManageUserQualifications } from "@/server/user-qualifications";
+import {
+  canManageUserQualifications,
+  canViewUserQualificationHistory,
+} from "@/server/user-qualifications";
 
 type PilotProfilePageProps = {
   params: Promise<{ id: string }>;
@@ -33,6 +37,8 @@ export default async function PilotProfilePage({ params }: PilotProfilePageProps
   const backHref = viewer.id === id ? "/" : "/admin/users";
   const backLabel = viewer.id === id ? "Back to dashboard" : "Back to users";
   const canManage = canManageUserQualifications(viewer);
+  const canViewHistory = canViewUserQualificationHistory(viewer);
+  const isOwnProfile = viewer.id === id;
 
   const [pilot, catalog] = await Promise.all([
     prisma.user.findUnique({
@@ -40,7 +46,10 @@ export default async function PilotProfilePage({ params }: PilotProfilePageProps
       include: {
         roles: true,
         qualifications: {
-          include: { qualification: true },
+          include: {
+            qualification: true,
+            limitedByQualification: { select: { name: true } },
+          },
           orderBy: { expiryDate: "asc" },
         },
       },
@@ -59,6 +68,26 @@ export default async function PilotProfilePage({ params }: PilotProfilePageProps
     pilot.qualifications.map((record) => record.qualificationId),
   );
 
+  const catalogById = new Map(catalog.map((item) => [item.id, item]));
+  const pilotQualificationIds = [
+    ...new Set(pilot.qualifications.map((record) => record.qualificationId)),
+  ];
+  const conditionalIdsByQualificationId =
+    await fetchConditionalIdsByQualificationId(pilotQualificationIds);
+
+  function resolveConditionals(qualificationId: string) {
+    const ids = conditionalIdsByQualificationId.get(qualificationId) ?? [];
+    return ids
+      .map((id) => {
+        const item = catalogById.get(id);
+        if (!item) {
+          return null;
+        }
+        return { id: item.id, code: item.code, name: item.name };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }
+
   const qualificationRows: PilotQualificationRow[] = pilot.qualifications.map(
     (record) => {
       const displayStatus = computeStatus(record.expiryDate, {
@@ -72,7 +101,10 @@ export default async function PilotProfilePage({ params }: PilotProfilePageProps
         name: record.qualification.name,
         validityPeriodDays: record.qualification.validityPeriodDays,
         issuedDate: record.issuedDate,
+        originalExpiryDate: record.originalExpiryDate,
         expiryDate: record.expiryDate,
+        expiryReducedByName: record.limitedByQualification?.name ?? null,
+        conditionals: resolveConditionals(record.qualificationId),
         issuingAuthority: record.issuingAuthority,
         storedStatus: record.status,
         displayStatus,
@@ -149,7 +181,8 @@ export default async function PilotProfilePage({ params }: PilotProfilePageProps
         userId={pilot.id}
         pilotName={`${pilot.firstName} ${pilot.lastName}`}
         canManage={canManage}
-        canViewHistory
+        canViewHistory={canViewHistory}
+        readOnly={isOwnProfile && !canManage}
         rows={qualificationRows}
         catalog={catalogOptions}
       />

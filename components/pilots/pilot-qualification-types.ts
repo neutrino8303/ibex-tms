@@ -8,6 +8,12 @@ export type QualificationOption = {
   alreadyAssigned: boolean;
 };
 
+export type QualificationConditionalRef = {
+  id: string;
+  code: string;
+  name: string;
+};
+
 export type PilotQualificationRow = {
   id: string;
   qualificationId: string;
@@ -15,7 +21,10 @@ export type PilotQualificationRow = {
   name: string;
   validityPeriodDays: number;
   issuedDate: Date;
+  originalExpiryDate: Date;
   expiryDate: Date;
+  expiryReducedByName: string | null;
+  conditionals: QualificationConditionalRef[];
   issuingAuthority: string | null;
   storedStatus: QualStatus;
   displayStatus: QualStatus;

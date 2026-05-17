@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Pencil, Plus, Search, Shield } from "lucide-react";
 import {
   QualificationFormDialog,
+  type QualificationCatalogOption,
   type QualificationRow,
 } from "@/components/qualifications/qualification-form-dialog";
 import { EmptyState } from "@/components/empty-state";
@@ -22,10 +23,12 @@ import { qualCategoryLabel } from "@/lib/qual-categories";
 
 type QualificationsTableProps = {
   qualifications: QualificationRow[];
+  catalog: QualificationCatalogOption[];
 };
 
 export function QualificationsTable({
   qualifications,
+  catalog,
 }: QualificationsTableProps) {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -118,7 +121,11 @@ export function QualificationsTable({
       )}
 
       {createOpen && (
-        <QualificationFormDialog open onOpenChange={setCreateOpen} />
+        <QualificationFormDialog
+          open
+          onOpenChange={setCreateOpen}
+          catalog={catalog}
+        />
       )}
       {editing && (
         <QualificationFormDialog
@@ -127,6 +134,7 @@ export function QualificationsTable({
             if (!open) setEditing(null);
           }}
           qualification={editing}
+          catalog={catalog}
         />
       )}
     </>

@@ -8,7 +8,7 @@ import type {
 } from "@/components/pilots/pilot-qualification-types";
 import { RenewUserQualificationDialog } from "@/components/pilots/renew-user-qualification-dialog";
 import { UserQualificationFormDialog } from "@/components/pilots/user-qualification-form-dialog";
-import { UserQualificationHistoryDialog } from "@/components/pilots/user-qualification-history-dialog";
+import { UserQualificationDetailDialog } from "@/components/pilots/user-qualification-detail-dialog";
 import { QualStatusBadge } from "@/components/qual-status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
+import {
+  expiryReducedTooltip,
+  isExpiryReduced,
+} from "@/lib/qualification-expiry";
 
 export type { PilotQualificationRow, QualificationOption } from "@/components/pilots/pilot-qualification-types";
 
@@ -32,6 +36,8 @@ type PilotQualificationsSectionProps = {
   pilotName: string;
   canManage: boolean;
   canViewHistory: boolean;
+  /** Pilot viewing own profile — qualifications visible, no mutations. */
+  readOnly?: boolean;
   rows: PilotQualificationRow[];
   catalog: QualificationOption[];
 };
@@ -41,13 +47,14 @@ export function PilotQualificationsSection({
   pilotName,
   canManage,
   canViewHistory,
+  readOnly = false,
   rows,
   catalog,
 }: PilotQualificationsSectionProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<PilotQualificationRow | null>(null);
   const [renewing, setRenewing] = useState<PilotQualificationRow | null>(null);
-  const [historyFor, setHistoryFor] = useState<PilotQualificationRow | null>(null);
+  const [detailFor, setDetailFor] = useState<PilotQualificationRow | null>(null);
 
   const showActions = canManage || canViewHistory;
 
@@ -58,10 +65,10 @@ export function PilotQualificationsSection({
           <h2 className="text-lg font-semibold">Qualifications</h2>
           <p className="text-sm text-muted-foreground">
             {canManage
-              ? "Add, edit, or renew qualifications. Open history to see who changed what and when."
-              : canViewHistory
-                ? "View change history for each qualification record."
-                : "Status is computed from expiry date at display time."}
+              ? "Click a qualification for full details. Add, edit, or renew from the row actions."
+              : readOnly
+                ? "Click a qualification to view validity, conditionals, and change history."
+                : "Click a qualification for full details and change history."}
           </p>
         </div>
         {canManage && (
@@ -105,8 +112,21 @@ export function PilotQualificationsSection({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.id}>
+              {rows.map((row) => {
+                const expiryReduced =
+                  row.expiryReducedByName !== null &&
+                  isExpiryReduced(row.originalExpiryDate, row.expiryDate);
+                const rowTitle = expiryReduced
+                  ? expiryReducedTooltip(row.expiryReducedByName!)
+                  : undefined;
+
+                return (
+                <TableRow
+                  key={row.id}
+                  title={rowTitle}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => setDetailFor(row)}
+                >
                   <TableCell>
                     <p className="font-medium">{row.name}</p>
                     <p className="font-mono text-xs text-muted-foreground">
@@ -116,8 +136,16 @@ export function PilotQualificationsSection({
                   <TableCell>
                     {format(row.issuedDate, "dd MMM yyyy")}
                   </TableCell>
-                  <TableCell>
-                    {format(row.expiryDate, "dd MMM yyyy")}
+                  <TableCell
+                    title={rowTitle}
+                    className={expiryReduced ? "cursor-help" : undefined}
+                  >
+                    <span>{format(row.expiryDate, "dd MMM yyyy")}</span>
+                    {expiryReduced && (
+                      <span className="ml-1.5 text-xs text-amber-700 dark:text-amber-400">
+                        *
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="tabular-nums">
                     {row.daysRemaining < 0
@@ -130,14 +158,17 @@ export function PilotQualificationsSection({
                   </TableCell>
                   {showActions && (
                     <TableCell>
-                      <div className="flex items-center gap-0.5">
+                      <div
+                        className="flex items-center gap-0.5"
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         {canViewHistory && (
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => setHistoryFor(row)}
-                            aria-label={`Change history for ${row.name}`}
+                            onClick={() => setDetailFor(row)}
+                            aria-label={`Details for ${row.name}`}
                           >
                             <History className="size-4" />
                           </Button>
@@ -168,7 +199,8 @@ export function PilotQualificationsSection({
                     </TableCell>
                   )}
                 </TableRow>
-              ))}
+              );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -205,15 +237,13 @@ export function PilotQualificationsSection({
         </>
       )}
 
-      {canViewHistory && (
-        <UserQualificationHistoryDialog
-          open={Boolean(historyFor)}
-          onOpenChange={(open) => {
-            if (!open) setHistoryFor(null);
-          }}
-          record={historyFor}
-        />
-      )}
+      <UserQualificationDetailDialog
+        open={Boolean(detailFor)}
+        onOpenChange={(open) => {
+          if (!open) setDetailFor(null);
+        }}
+        record={detailFor}
+      />
     </div>
   );
 }

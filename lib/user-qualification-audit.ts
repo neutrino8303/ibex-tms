@@ -22,6 +22,7 @@ export type UserQualificationAuditSnapshot = {
   qualificationCode?: string;
   qualificationName?: string;
   issuedDate?: string;
+  originalExpiryDate?: string;
   expiryDate?: string;
   issuingAuthority?: string | null;
   status?: string;
@@ -44,7 +45,8 @@ const FIELD_LABELS: Record<keyof UserQualificationAuditSnapshot, string> = {
   qualificationCode: "Code",
   qualificationName: "Qualification",
   issuedDate: "Issued",
-  expiryDate: "Expiry",
+  originalExpiryDate: "Original expiry",
+  expiryDate: "Effective expiry",
   issuingAuthority: "Authority",
   status: "Status",
   linkedEvaluationId: "Linked evaluation",
@@ -55,7 +57,11 @@ function formatFieldValue(key: keyof UserQualificationAuditSnapshot, value: unkn
   if (value === null || value === undefined || value === "") {
     return "—";
   }
-  if (key === "issuedDate" || key === "expiryDate") {
+  if (
+    key === "issuedDate" ||
+    key === "originalExpiryDate" ||
+    key === "expiryDate"
+  ) {
     const date = new Date(String(value));
     if (!Number.isNaN(date.getTime())) {
       return date.toLocaleDateString("en-GB", {
@@ -103,6 +109,7 @@ export function describeAuditChanges(
 export function toUserQualificationAuditSnapshot(record: {
   qualification: { code: string; name: string };
   issuedDate: Date;
+  originalExpiryDate: Date;
   expiryDate: Date;
   issuingAuthority: string | null;
   status: string;
@@ -113,6 +120,7 @@ export function toUserQualificationAuditSnapshot(record: {
     qualificationCode: record.qualification.code,
     qualificationName: record.qualification.name,
     issuedDate: record.issuedDate.toISOString(),
+    originalExpiryDate: record.originalExpiryDate.toISOString(),
     expiryDate: record.expiryDate.toISOString(),
     issuingAuthority: record.issuingAuthority,
     status: record.status,

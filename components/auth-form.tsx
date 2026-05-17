@@ -4,16 +4,9 @@ import Link from "next/link";
 import { useActionState } from "react";
 import type { AuthActionState } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 type AuthFormProps = {
   id?: string;
@@ -49,47 +42,58 @@ export function AuthForm({
   const [state, formAction, pending] = useActionState(action, initialState);
 
   return (
-    <Card className="w-full max-w-md border-border/60 shadow-lg">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-xl">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <form id={id} action={formAction}>
-        <CardContent className="space-y-4">
-          {state.error && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {state.error}
-            </p>
-          )}
-          {fields.map((field) => (
-            <div key={field.name} className="space-y-2">
-              <Label htmlFor={field.name}>{field.label}</Label>
-              <Input
-                id={field.name}
-                name={field.name}
-                type={field.type ?? "text"}
-                autoComplete={field.autoComplete}
-                required
-              />
-              {state.fieldErrors?.[field.name]?.map((message) => (
-                <p key={message} className="text-sm text-destructive">
-                  {message}
-                </p>
-              ))}
-            </div>
-          ))}
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? "Please wait…" : submitLabel}
-          </Button>
-          <p className="text-center text-sm text-muted-foreground">
-            <Link href={alternateHref} className="text-primary hover:underline">
-              {alternateLabel}
-            </Link>
+    <div className="w-full max-w-[22rem]">
+      <div className="mb-6">
+        <h1 className="page-title text-xl">{title}</h1>
+        <p className="page-subtitle">{description}</p>
+      </div>
+
+      <form
+        id={id}
+        action={formAction}
+        className="ops-panel space-y-4 p-5"
+      >
+        {state.error && (
+          <p
+            className="border border-destructive/25 bg-destructive/8 px-3 py-2 text-sm text-destructive"
+            role="alert"
+          >
+            {state.error}
           </p>
-        </CardFooter>
+        )}
+        {fields.map((field) => (
+          <div key={field.name} className="space-y-1.5">
+            <Label htmlFor={field.name} className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {field.label}
+            </Label>
+            <Input
+              id={field.name}
+              name={field.name}
+              type={field.type ?? "text"}
+              autoComplete={field.autoComplete}
+              required
+              className="bg-card"
+            />
+            {state.fieldErrors?.[field.name]?.map((message) => (
+              <p key={message} className="text-sm text-destructive">
+                {message}
+              </p>
+            ))}
+          </div>
+        ))}
+        <Button type="submit" className="mt-1 w-full" disabled={pending}>
+          {pending ? "Please wait…" : submitLabel}
+        </Button>
       </form>
-    </Card>
+
+      <p className="mt-4 text-center text-sm text-muted-foreground">
+        <Link
+          href={alternateHref}
+          className={cn("font-medium text-accent hover:underline")}
+        >
+          {alternateLabel}
+        </Link>
+      </p>
+    </div>
   );
 }

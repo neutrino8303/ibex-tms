@@ -1,12 +1,5 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type StatCardProps = {
@@ -18,10 +11,17 @@ type StatCardProps = {
   tone?: "default" | "warning" | "danger" | "muted";
 };
 
-const toneStyles = {
+const toneBar = {
+  default: "bg-primary",
+  warning: "bg-amber-500",
+  danger: "bg-destructive",
+  muted: "bg-muted-foreground/40",
+};
+
+const toneValue = {
   default: "text-foreground",
-  warning: "text-amber-600 dark:text-amber-400",
-  danger: "text-red-600 dark:text-red-400",
+  warning: "text-amber-700",
+  danger: "text-destructive",
   muted: "text-muted-foreground",
 };
 
@@ -34,31 +34,46 @@ export function StatCard({
   tone = "default",
 }: StatCardProps) {
   const content = (
-    <Card className={cn(href && "transition-colors hover:bg-muted/40")}>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+    <article
+      className={cn(
+        "ops-panel relative overflow-hidden p-4 transition-colors",
+        href && "hover:border-accent/40 hover:bg-card",
+      )}
+    >
+      <div className={cn("absolute inset-x-0 top-0 h-0.5", toneBar[tone])} />
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <CardDescription>{title}</CardDescription>
-          <CardTitle
-            className={cn("text-3xl font-semibold tabular-nums", toneStyles[tone])}
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+            {title}
+          </p>
+          <p
+            className={cn(
+              "mt-1 font-heading text-3xl font-semibold tabular-nums leading-none",
+              toneValue[tone],
+            )}
           >
             {value}
-          </CardTitle>
+          </p>
         </div>
         {Icon && (
-          <Icon className="size-5 text-muted-foreground" aria-hidden />
+          <Icon
+            className="mt-0.5 size-4 shrink-0 text-muted-foreground/60"
+            aria-hidden
+          />
         )}
-      </CardHeader>
+      </div>
       {description && (
-        <CardContent>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </CardContent>
+        <p className="mt-2 text-xs text-muted-foreground">{description}</p>
       )}
-    </Card>
+    </article>
   );
 
   if (href) {
     return (
-      <Link href={href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <Link
+        href={href}
+        className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
         {content}
       </Link>
     );

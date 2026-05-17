@@ -6,7 +6,7 @@ const LOGIN_FORM_ID = "login-form";
 
 export default function LoginPage() {
   return (
-    <div className="flex w-full max-w-md flex-col gap-6">
+    <div className="flex w-full flex-col items-center gap-8">
       <AuthForm
         id={LOGIN_FORM_ID}
         title="Sign in"

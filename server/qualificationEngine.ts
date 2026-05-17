@@ -4,6 +4,7 @@ import { isTaskPassed } from "@/lib/evaluations";
 import { toUserQualificationAuditSnapshot } from "@/lib/user-qualification-audit";
 import { writeAuditLog } from "@/server/audit";
 import { prisma } from "@/server/db";
+import { recomputeAllEffectiveExpiriesForUser } from "@/server/qualification-expiry";
 
 export async function renewQualificationsForEvaluation(
   evaluationId: string,
@@ -72,7 +73,7 @@ export async function renewQualificationsForEvaluation(
     });
     if (!qualification) continue;
 
-    const expiryDate = addDays(signedAt, qualification.validityPeriodDays);
+    const originalExpiryDate = addDays(signedAt, qualification.validityPeriodDays);
 
     const existing = await prisma.userQualification.findFirst({
       where: {
@@ -87,7 +88,9 @@ export async function renewQualificationsForEvaluation(
           where: { id: existing.id },
           data: {
             issuedDate: signedAt,
-            expiryDate,
+            originalExpiryDate,
+            expiryDate: originalExpiryDate,
+            limitedByQualificationId: null,
             status: QualStatus.VALID,
             linkedEvaluationId: evaluationId,
           },
@@ -98,7 +101,9 @@ export async function renewQualificationsForEvaluation(
             userId: evaluation.traineeId,
             qualificationId,
             issuedDate: signedAt,
-            expiryDate,
+            originalExpiryDate,
+            expiryDate: originalExpiryDate,
+            limitedByQualificationId: null,
             status: QualStatus.VALID,
             linkedEvaluationId: evaluationId,
           },
@@ -123,6 +128,8 @@ export async function renewQualificationsForEvaluation(
 
     renewedCount += 1;
   }
+
+  await recomputeAllEffectiveExpiriesForUser(evaluation.traineeId);
 
   return renewedCount;
 }

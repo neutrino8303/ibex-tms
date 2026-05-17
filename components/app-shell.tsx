@@ -17,11 +17,13 @@ export async function AppShell({ children }: AppShellProps) {
   const sections = getNavigationForUser(user);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden">
       <AppSidebar sections={sections} />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader user={user} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-7">
+          {children}
+        </main>
       </div>
     </div>
   );

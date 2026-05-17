@@ -80,7 +80,7 @@ export function UserQualificationFormDialog({
     ? toDateInputValue(record.issuedDate)
     : toDateInputValue(new Date());
   const defaultExpiry = record
-    ? toDateInputValue(record.expiryDate)
+    ? toDateInputValue(record.originalExpiryDate)
     : toDateInputValue(addDays(new Date(), 180));
 
   return (
@@ -168,7 +168,7 @@ export function UserQualificationFormDialog({
               ))}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="expiryDate">Expiry date</Label>
+              <Label htmlFor="expiryDate">Original expiry date</Label>
               <Input
                 id="expiryDate"
                 name="expiryDate"
@@ -176,6 +176,10 @@ export function UserQualificationFormDialog({
                 required
                 defaultValue={defaultExpiry}
               />
+              <p className="text-xs text-muted-foreground">
+                Effective expiry may be earlier if a conditional qualification
+                expires sooner.
+              </p>
               {state.fieldErrors?.expiryDate?.map((message) => (
                 <p key={message} className="text-sm text-destructive">
                   {message}

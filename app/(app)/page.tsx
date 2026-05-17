@@ -42,17 +42,15 @@ export default async function HomePage() {
   const profileHref = isPilotUser(user) ? `/pilots/${user.id}` : undefined;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Welcome back, {user.firstName}
-        </h1>
-        <p className="text-muted-foreground">
+    <div className="space-y-7">
+      <header className="page-header">
+        <h1 className="page-title">Welcome back, {user.firstName}</h1>
+        <p className="page-subtitle">
           {orgView
             ? "Organization overview — qualifications and evaluations at a glance."
             : "Your training status — qualifications and evaluations."}
         </p>
-      </div>
+      </header>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.pilots !== null && (
@@ -140,7 +138,10 @@ export default async function HomePage() {
           <CardContent className="flex flex-col gap-2">
             <Link
               href="/evaluations"
-              className={cn(buttonVariants({ variant: "secondary" }), "justify-start")}
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "justify-start border-border bg-card",
+              )}
             >
               Evaluations
             </Link>

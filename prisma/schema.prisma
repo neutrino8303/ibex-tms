@@ -91,23 +91,42 @@ model Qualification {
   description        String?
   createdAt          DateTime       @default(now())
 
-  userQualifications UserQualification[]
-  taskLinks          TaskQualificationLink[]
+  conditionalLinks   QualificationConditional[] @relation("QualificationConditionals")
+  conditionalFor     QualificationConditional[] @relation("ConditionalQualification")
+
+  userQualifications        UserQualification[]
+  taskLinks                 TaskQualificationLink[]
+  limitedUserQualifications UserQualification[] @relation("UserQualificationLimitedBy")
+}
+
+model QualificationConditional {
+  id                         String @id @default(cuid())
+  qualificationId            String
+  conditionalQualificationId String
+
+  qualification            Qualification @relation("QualificationConditionals", fields: [qualificationId], references: [id], onDelete: Cascade)
+  conditionalQualification Qualification @relation("ConditionalQualification", fields: [conditionalQualificationId], references: [id], onDelete: Cascade)
+
+  @@unique([qualificationId, conditionalQualificationId])
+  @@index([conditionalQualificationId])
 }
 
 model UserQualification {
-  id                  String         @id @default(cuid())
-  userId              String
-  qualificationId     String
-  issuedDate          DateTime
-  expiryDate          DateTime
-  issuingAuthority    String?
-  status              QualStatus     @default(VALID)
-  linkedEvaluationId  String?
+  id                       String         @id @default(cuid())
+  userId                   String
+  qualificationId          String
+  issuedDate               DateTime
+  originalExpiryDate       DateTime
+  expiryDate               DateTime
+  limitedByQualificationId String?
+  issuingAuthority         String?
+  status                   QualStatus     @default(VALID)
+  linkedEvaluationId       String?
 
-  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  qualification       Qualification  @relation(fields: [qualificationId], references: [id])
-  linkedEvaluation    Evaluation?    @relation(fields: [linkedEvaluationId], references: [id])
+  user                     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  qualification            Qualification  @relation(fields: [qualificationId], references: [id])
+  limitedByQualification   Qualification? @relation("UserQualificationLimitedBy", fields: [limitedByQualificationId], references: [id], onDelete: SetNull)
+  linkedEvaluation         Evaluation?    @relation(fields: [linkedEvaluationId], references: [id])
 
   @@index([userId])
   @@index([expiryDate])

@@ -5,11 +5,20 @@ import { addDays, startOfDay } from "date-fns";
 import { QualStatus } from "@prisma/client";
 import { z } from "zod";
 import type { ActionState } from "@/lib/action-state";
+import { deriveQualificationLifecycleDates } from "@/lib/user-qualification-dates";
+import {
+  computeStatus,
+  daysUntilExpiry,
+} from "@/lib/qualifications";
 import { toUserQualificationAuditSnapshot } from "@/lib/user-qualification-audit";
 import { writeAuditLog } from "@/server/audit";
 import { prisma } from "@/server/db";
+import { getCurrentUser } from "@/lib/auth";
 import { requireAdminActorId } from "@/server/require-admin";
 import { requirePilotProfileAccess } from "@/server/require-pilot-view";
+import { fetchConditionalIdsByQualificationId } from "@/server/qualification-conditionals";
+import { recomputeAllEffectiveExpiriesForUser } from "@/server/qualification-expiry";
+import { canViewUserQualificationHistory } from "@/server/user-qualifications";
 import {
   getUserQualificationHistory,
   type UserQualificationHistoryEntry,
@@ -130,6 +139,103 @@ export type UserQualificationHistoryDto = Omit<
   timestamp: string;
 };
 
+export type QualificationConditionalRefDto = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+export type UserQualificationDetailDto = {
+  id: string;
+  code: string;
+  name: string;
+  validityPeriodDays: number;
+  issuingAuthority: string | null;
+  storedStatus: string;
+  displayStatus: string;
+  daysRemaining: number;
+  issuedDate: string;
+  originalExpiryDate: string;
+  expiryDate: string;
+  expiryReducedByName: string | null;
+  initialAcquisitionDate: string;
+  lastRenewalDate: string | null;
+  conditionals: QualificationConditionalRefDto[];
+  history: UserQualificationHistoryDto[];
+};
+
+export async function fetchUserQualificationDetailAction(
+  userQualificationId: string,
+): Promise<UserQualificationDetailDto | null> {
+  const record = await prisma.userQualification.findUnique({
+    where: { id: userQualificationId },
+    include: {
+      qualification: true,
+      limitedByQualification: { select: { name: true } },
+    },
+  });
+
+  if (!record) {
+    return null;
+  }
+
+  const viewer = await getCurrentUser();
+  if (!viewer) {
+    return null;
+  }
+
+  await requirePilotProfileAccess(record.userId);
+
+  const now = new Date();
+  const displayStatus = computeStatus(record.expiryDate, {
+    storedStatus: record.status,
+    now,
+  });
+
+  const historyEntries = await getUserQualificationHistory(userQualificationId);
+  const { initialAcquisitionDate, lastRenewalDate } =
+    deriveQualificationLifecycleDates(historyEntries, record.issuedDate);
+
+  const conditionalIds = await fetchConditionalIdsByQualificationId([
+    record.qualificationId,
+  ]);
+  const conditionalIdList =
+    conditionalIds.get(record.qualificationId) ?? [];
+
+  const conditionalCatalog =
+    conditionalIdList.length > 0
+      ? await prisma.qualification.findMany({
+          where: { id: { in: conditionalIdList } },
+          select: { id: true, code: true, name: true },
+          orderBy: { code: "asc" },
+        })
+      : [];
+
+  const history: UserQualificationHistoryDto[] = historyEntries.map((entry) => ({
+    ...entry,
+    timestamp: entry.timestamp.toISOString(),
+  }));
+
+  return {
+    id: record.id,
+    code: record.qualification.code,
+    name: record.qualification.name,
+    validityPeriodDays: record.qualification.validityPeriodDays,
+    issuingAuthority: record.issuingAuthority,
+    storedStatus: record.status,
+    displayStatus,
+    daysRemaining: daysUntilExpiry(record.expiryDate, now),
+    issuedDate: record.issuedDate.toISOString(),
+    originalExpiryDate: record.originalExpiryDate.toISOString(),
+    expiryDate: record.expiryDate.toISOString(),
+    expiryReducedByName: record.limitedByQualification?.name ?? null,
+    initialAcquisitionDate: initialAcquisitionDate.toISOString(),
+    lastRenewalDate: lastRenewalDate?.toISOString() ?? null,
+    conditionals: conditionalCatalog,
+    history,
+  };
+}
+
 export async function fetchUserQualificationHistoryAction(
   userQualificationId: string,
 ): Promise<UserQualificationHistoryDto[]> {
@@ -138,7 +244,16 @@ export async function fetchUserQualificationHistoryAction(
     return [];
   }
 
+  const viewer = await getCurrentUser();
+  if (!viewer) {
+    return [];
+  }
+
   await requirePilotProfileAccess(record.userId);
+
+  if (!canViewUserQualificationHistory(viewer)) {
+    return [];
+  }
 
   const history = await getUserQualificationHistory(userQualificationId);
   return history.map((entry) => ({
@@ -200,6 +315,7 @@ export async function createUserQualificationAction(
       userId: parsed.data.userId,
       qualificationId: parsed.data.qualificationId,
       issuedDate: dates.issuedDate,
+      originalExpiryDate: dates.expiryDate,
       expiryDate: dates.expiryDate,
       issuingAuthority: parsed.data.issuingAuthority ?? "EASA",
       status: parsed.data.status,
@@ -207,12 +323,16 @@ export async function createUserQualificationAction(
     include: { qualification: true },
   });
 
+  await recomputeAllEffectiveExpiriesForUser(parsed.data.userId);
+
+  const refreshed = await loadUserQualificationRecord(record.id);
+
   await writeAuditLog({
     actorId,
     action: "USER_QUALIFICATION_CREATED",
     entityType: "UserQualification",
     entityId: record.id,
-    afterValue: toUserQualificationAuditSnapshot(record),
+    afterValue: toUserQualificationAuditSnapshot(refreshed ?? record),
   });
 
   revalidatePath(`/pilots/${parsed.data.userId}`);
@@ -246,16 +366,25 @@ export async function updateUserQualificationAction(
   }
 
   const dates = parseDates(parsed.data.issuedDate, parsed.data.expiryDate);
-  const record = await prisma.userQualification.update({
+  await prisma.userQualification.update({
     where: { id: parsed.data.userQualificationId },
     data: {
       issuedDate: dates.issuedDate,
+      originalExpiryDate: dates.expiryDate,
       expiryDate: dates.expiryDate,
+      limitedByQualificationId: null,
       issuingAuthority: parsed.data.issuingAuthority ?? null,
       status: parsed.data.status,
     },
-    include: { qualification: true },
   });
+
+  await recomputeAllEffectiveExpiriesForUser(parsed.data.userId);
+
+  const record = await loadUserQualificationRecord(parsed.data.userQualificationId);
+
+  if (!record) {
+    return { error: "Qualification record not found" };
+  }
 
   await writeAuditLog({
     actorId,
@@ -305,21 +434,30 @@ export async function renewUserQualificationAction(
       return { error: "Invalid issued date" };
     }
 
-    const expiryDate = addDays(
+    const originalExpiryDate = addDays(
       issuedDate,
       existing.qualification.validityPeriodDays,
     );
 
-    const record = await prisma.userQualification.update({
+    await prisma.userQualification.update({
       where: { id: existing.id },
       data: {
         issuedDate,
-        expiryDate,
+        originalExpiryDate,
+        expiryDate: originalExpiryDate,
+        limitedByQualificationId: null,
         status: QualStatus.VALID,
         linkedEvaluationId: null,
       },
-      include: { qualification: true },
     });
+
+    await recomputeAllEffectiveExpiriesForUser(parsed.data.userId);
+
+    const record = await loadUserQualificationRecord(existing.id);
+
+    if (!record) {
+      return { error: "Qualification record not found" };
+    }
 
     await writeAuditLog({
       actorId,
@@ -337,7 +475,7 @@ export async function renewUserQualificationAction(
     revalidatePath("/dashboard/expiring");
     return {
       success: true,
-      message: `${record.qualification.code} renewed until ${expiryDate.toLocaleDateString("en-GB")}`,
+      message: `${record.qualification.code} renewed until ${record.expiryDate.toLocaleDateString("en-GB")}`,
     };
   } catch (error) {
     console.error("renewUserQualificationAction failed:", error);

@@ -115,6 +115,13 @@ async function main() {
     qualifications.map((q) => [q.code, q]),
   ) as Record<string, (typeof qualifications)[number]>;
 
+  await prisma.qualificationConditional.create({
+    data: {
+      qualificationId: qualByCode["A320-OPC"].id,
+      conditionalQualificationId: qualByCode["A320-TR"].id,
+    },
+  });
+
   const admin = await prisma.user.create({
     data: {
       email: "admin@tms.local",
@@ -291,12 +298,17 @@ async function main() {
           userId: pilot.id,
           qualificationId: qualification.id,
           issuedDate,
+          originalExpiryDate: expiryDate,
           expiryDate,
           issuingAuthority: assignment.authority ?? "EASA",
           status: assignment.status ?? QualStatus.VALID,
         },
       });
     }
+    const { recomputeAllEffectiveExpiriesForUser } = await import(
+      "../server/qualification-expiry"
+    );
+    await recomputeAllEffectiveExpiriesForUser(pilot.id);
   }
 
   const opcForm = await prisma.evaluationForm.create({

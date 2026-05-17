@@ -2,6 +2,7 @@
 
 import { User } from "lucide-react";
 import type { CurrentUser } from "@/lib/auth";
+import { UtcNow } from "@/components/utc-now";
 import { LogoutMenuItem } from "@/components/logout-button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
@@ -26,17 +27,20 @@ function initials(firstName: string, lastName: string): string {
 
 export function AppHeader({ user }: AppHeaderProps) {
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-card px-6">
-      <div />
+    <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-card/80 px-5 backdrop-blur-sm">
+      <UtcNow
+        compact
+        className="hidden font-mono text-[0.7rem] text-muted-foreground sm:inline"
+      />
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(
-            buttonVariants({ variant: "ghost" }),
+            buttonVariants({ variant: "ghost", size: "sm" }),
             "gap-2 px-2 outline-none focus-visible:ring-2 focus-visible:ring-ring",
           )}
         >
-          <Avatar className="size-8">
-            <AvatarFallback className="bg-primary text-xs text-primary-foreground">
+          <Avatar className="size-7 rounded-md">
+            <AvatarFallback className="rounded-md bg-primary text-[0.65rem] font-semibold text-primary-foreground">
               {initials(user.firstName, user.lastName)}
             </AvatarFallback>
           </Avatar>
